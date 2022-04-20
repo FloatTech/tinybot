@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 
 import java.net.http.WebSocket;
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 public class Plugin {
@@ -11,13 +12,19 @@ public class Plugin {
     private HashMap<String, Object> context;
 
     private String superUser;
+    private Echo echo;
 
-    public Plugin(WebSocket webSocket, HashMap<String, Object> context) {
+    public Plugin(WebSocket webSocket, Echo echo, HashMap<String, Object> context) {
         this.webSocket = webSocket;
+        this.echo = echo;
         this.context = context;
     }
 
     public Boolean match() {
+        return true;
+    }
+
+    public Boolean handle() {
         return true;
     }
 
@@ -55,11 +62,16 @@ public class Plugin {
         req.put("action", action);
         req.put("params", params);
         req.put("echo", 0);
+        Integer number = echo.listen();
         this.webSocket.sendText(gson.toJson(req), true);
-        return req;
+        try {
+            return echo.queue(number).poll(30, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            return null;
+        }
     }
 
-    public Integer sendMsg(Message[] messages) {
+    public Boolean sendMsg(Message[] messages) {
         if (this.context.get("group_id") != "") {
             Integer groupID = (Integer) this.context.get("group_id");
             return sendGroupMsg(groupID, messages);
@@ -69,19 +81,17 @@ public class Plugin {
         }
     }
 
-    public Integer sendGroupMsg(Integer groupID, Message[] messages) {
+    public Boolean sendGroupMsg(Integer groupID, Message[] messages) {
         HashMap<String, Object> params = new HashMap<>();
         params.put("group_id", groupID);
         params.put("message", messages);
-        callAPI("send_group_msg", params);
-        return 0;
+        return callAPI("send_group_msg", params) == null;
     }
 
-    public Integer sendPrivateMsg(Integer userID, Message[] messages) {
+    public Boolean sendPrivateMsg(Integer userID, Message[] messages) {
         HashMap<String, Object> params = new HashMap<>();
         params.put("user_id", userID);
         params.put("message", messages);
-        callAPI("send_private_msg", params);
-        return 0;
+        return callAPI("send_private_msg", params) == null;
     }
 }
