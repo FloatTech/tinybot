@@ -15,9 +15,9 @@ public class TinyBot {
 
     public TinyBot(URI uri) throws InterruptedException {
         while (true) {
-            logger.warning("开始重连......");
             Thread.sleep(5000);
-            var future = HttpClient.newHttpClient().newWebSocketBuilder()
+            logger.warning("开始重连......");
+            CompletableFuture<WebSocket> future = HttpClient.newHttpClient().newWebSocketBuilder()
                     .buildAsync(uri, new WebSocketListener());
             try {
                 future.join();
@@ -33,43 +33,25 @@ public class TinyBot {
 
         @Override
         public void onOpen(WebSocket webSocket) {
-            System.out.println("websocket opened.");
-            webSocket.request(1);
+            logger.info("连接成功");
         }
 
         @Override
         public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
             webSocket.request(1);
-            System.out.println(data.toString());
-            return null;
-        }
-
-        @Override
-        public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-            System.out.println("ws closed with status(" + statusCode + "). cause:" + reason);
-            webSocket.sendClose(statusCode, reason);
-            try {
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-            }
-            try {
-                new TinyBot(uri);
-            } catch (Exception ignore) {
-            }
+            logger.info(data.toString());
             return null;
         }
 
         @Override
         public void onError(WebSocket webSocket, Throwable error) {
-            System.out.println("error: " + error.getLocalizedMessage());
             webSocket.abort();
-            try {
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-            }
+            logger.info(error.getLocalizedMessage());
             try {
                 new TinyBot(uri);
-            } catch (Exception ignore) {
+            } catch (Exception e) {
+                logger.info(e.toString());
+                System.exit(0);
             }
         }
 
@@ -78,7 +60,9 @@ public class TinyBot {
     public static void main(String[] args) throws InterruptedException {
         try {
             new TinyBot(uri);
-        } catch (Exception ignore) {
+        } catch (Exception e) {
+            logger.info(e.toString());
+            System.exit(0);
         }
         while (true) {
         }
